@@ -16,6 +16,12 @@ async function connectToMongoDB() {
   }
 }
 
+// Error handling middleware
+router.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
 // Middleware to ensure MongoDB connection
 const ensureMongoDBConnection = async (req, res, next) => {
   try {
