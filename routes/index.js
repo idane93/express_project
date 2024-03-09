@@ -25,7 +25,7 @@ router.use((err, req, res, next) => {
 // Middleware to ensure MongoDB connection
 const ensureMongoDBConnection = async (req, res, next) => {
   try {
-    if (!client.isConnected()) {
+    if (!client.isConnected() || !client.topology.isConnected()) {
       await connectToMongoDB();
     }
     next();
@@ -66,10 +66,6 @@ router.post('/addcalories', async (req, res) => {
 
 router.get('/report', async (req, res) => {
   try {
-    if (!client.isConnected()) {
-      await connectToMongoDB();
-    }
-
     const db = client.db('serversideproject');
     const { user_id, year, month } = req.query;
     const catArr = ['breakfast', 'lunch', 'dinner', 'other'];
