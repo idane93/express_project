@@ -25,7 +25,7 @@ router.use((err, req, res, next) => {
 // Middleware to ensure MongoDB connection
 const ensureMongoDBConnection = async (req, res, next) => {
   try {
-    if (!client.isConnected() || !client.topology.isConnected()) {
+    if (!client.isConnected() && (!client.topology || !client.topology.isConnected())) {
       await connectToMongoDB();
     }
     next();
