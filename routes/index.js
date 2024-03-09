@@ -12,11 +12,25 @@ async function connectToMongoDB() {
     console.log('Connected to MongoDB');
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
+    process.exit(1); // Terminate the application on connection error
   }
 }
 
-// Connect to MongoDB when the application starts
-connectToMongoDB();
+// Middleware to ensure MongoDB connection
+const ensureMongoDBConnection = async (req, res, next) => {
+  try {
+    if (!client.isConnected()) {
+      await connectToMongoDB();
+    }
+    next();
+  } catch (error) {
+    console.error('Error ensuring MongoDB connection:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Apply the middleware to all routes
+router.use(ensureMongoDBConnection);
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -25,10 +39,9 @@ router.get('/', function(req, res, next) {
 
 router.post('/addcalories', async (req, res) => {
   try {
-    const db = client.db('serversideproject'); //connect to the database
-    const { user_id, year, month, day, description, category, amount } = req.body; //retrieve parameters form the body
+    const db = client.db('serversideproject');
+    const { user_id, year, month, day, description, category, amount } = req.body;
 
-    // Add new calorie consumption item
     await db.collection('calories').insertOne({
       user_id,
       year,
@@ -47,13 +60,16 @@ router.post('/addcalories', async (req, res) => {
 
 router.get('/report', async (req, res) => {
   try {
-    const db = client.db('serversideproject'); //connect to the database
-    const { user_id, year, month } = req.query; //retrieve parameters from query string
+    if (!client.isConnected()) {
+      await connectToMongoDB();
+    }
+
+    const db = client.db('serversideproject');
+    const { user_id, year, month } = req.query;
     const catArr = ['breakfast', 'lunch', 'dinner', 'other'];
 
     const report = await db.collection('calories').aggregate([
       {
-        //looking for documents with matching year,month and user id
         $match: {
           user_id: parseInt(user_id),
           year: parseInt(year),
@@ -61,7 +77,6 @@ router.get('/report', async (req, res) => {
         },
       },
       {
-        //group documents found by categories
         $group: {
           _id: '$category',
           items: {
@@ -76,19 +91,15 @@ router.get('/report', async (req, res) => {
     ]).toArray();
 
     const formattedReport = {};
+    catArr.forEach(category => {
+      formattedReport[category] = [];
+    });
 
-    //adding empty representation of each category
-    catArr.forEach(category=>{
-      formattedReport[category]=[];
-    })
-
-    //fill categorises that aren't actually empty
     report.forEach(category => {
       formattedReport[category._id || 'other'] = category.items;
     });
 
     res.json(formattedReport);
-
     console.log('Formatted report: ', formattedReport);
   } catch (error) {
     console.error(error);
@@ -96,38 +107,36 @@ router.get('/report', async (req, res) => {
   }
 });
 
-router.get('/about', async (req,res) => {
+router.get('/about', async (req, res) => {
   const devArr = [
     {
-      'firstname':'Eyal',
-      'lastname':'Chachmishvily',
-      'id':209786094,
-      'email':'eyalchachmi@gmail.com'
+      'firstname': 'Eyal',
+      'lastname': 'Chachmishvily',
+      'id': 209786094,
+      'email': 'eyalchachmi@gmail.com'
     },
     {
-      'firstname':'Idan',
-      'lastname':'Eliyahu',
-      'id':204174155,
-      'email':'idaneliyahu93@gmail.com'
+      'firstname': 'Idan',
+      'lastname': 'Eliyahu',
+      'id': 204174155,
+      'email': 'idaneliyahu93@gmail.com'
     },
     {
-      'firstname':'Shahar',
-      'lastname':'Sivilia',
-      'id':206375180,
-      'email':'Shahars71@gmail.com'
+      'firstname': 'Shahar',
+      'lastname': 'Sivilia',
+      'id': 206375180,
+      'email': 'Shahars71@gmail.com'
     }
-  ]
+  ];
 
   res.json(devArr);
-})
-
-
+});
 
 // Handle cleanup and close MongoDB connection when the application is shutting down
-process.on('exit', () => {
-  client.close();
-  console.log('MongoDB connection closed on process exit');
+process.on('SIGINT', async () => {
+  await client.close();
+  console.log('MongoDB connection closed on SIGINT signal');
+  process.exit(0);
 });
 
 module.exports = router;
-
