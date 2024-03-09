@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 const { MongoClient } = require('mongodb');
 
-const uri = 'mongodb+srv://idan:boombang626@cluster0.nreh1jc.mongodb.net/';
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 // Function to connect to MongoDB
