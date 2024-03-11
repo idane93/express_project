@@ -18,6 +18,13 @@ async function connectToMongoDB() {
 // Connect to MongoDB when the application starts
 connectToMongoDB();
 
+// Function to check if user_id exists in the users collection
+async function isUserIdExists(db, user_id) {
+  const user = await db.collection('users').findOne({ id:user_id });
+  return user !== null;
+}
+
+
 /* GET home page. */
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
@@ -27,6 +34,20 @@ router.post('/addcalories', async (req, res) => {
   try {
     const db = client.db('serversideproject'); //connect to the database
     const { user_id, year, month, day, description, category, amount } = req.body; //retrieve parameters form the body
+
+    // Validate input parameters
+    if (
+        typeof year !== 'number' ||
+        typeof month !== 'number' ||
+        typeof day !== 'number' ||
+        typeof amount !== 'number' ||
+        typeof description !== 'string' ||
+        !['breakfast', 'lunch', 'dinner', 'other'].includes(category) ||
+        description.trim() === ''||
+        !(await isUserIdExists(db, user_id))
+    ) {
+      return res.status(400).json({ error: 'Invalid input parameters.' });
+    }
 
     // Add new calorie consumption item
     await db.collection('calories').insertOne({
